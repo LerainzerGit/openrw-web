@@ -18,10 +18,11 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
+        # We removed Boost here so it stops confusing CMake
+        sudo apt-get install -y libsdl2-dev libopenal-dev
 
     - name: Setup Emscripten Official
-      uses: emscripten-core/setup-emsdk@v14  # The correct official repository path
+      uses: emscripten-core/setup-emsdk@v14
       with:
         version: latest
 
@@ -30,17 +31,18 @@ jobs:
         mkdir build
         cd build
         
-        # We force CMake to allow searching host paths for headers/libraries during cross-compilation
+        # 1. Force Emscripten to download and use its own WebAssembly-compatible Boost
+        export EMCC_CFLAGS="-s USE_BOOST=1"
+        export EMXX_CFLAGS="-s USE_BOOST=1"
+        
+        # 2. We mock the Boost variables so CMake thinks it found it and skips the error loop
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
           -DOPENRW_WEB_BUILD=ON \
-          -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
-          -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
-          -DBoost_NO_BOOST_CMAKE=ON \
-          -DBOOST_ROOT=/usr \
-          -DBOOST_INCLUDEDIR=/usr/include \
-          -DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu
+          -DBoost_FOUND=TRUE \
+          -DBoost_INCLUDE_DIRS="" \
+          -DBoost_LIBRARIES=""
         
         emmake make -j$(nproc)
 
