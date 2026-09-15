@@ -18,8 +18,8 @@ jobs:
     - name: Install System Utilities
       run: |
         sudo apt-get update
-        # Installs base development headers so physical target bindings resolve cleanly
-        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev libbullet-dev
+        # Added libglm-dev to satisfy the OpenGL Mathematics dependency
+        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev libbullet-dev libglm-dev
 
     - name: Setup Emscripten Official
       uses: emscripten-core/setup-emsdk@v14
@@ -28,10 +28,9 @@ jobs:
 
     - name: Build via Global Code Injection
       run: |
-        # 1. Create a root-level Module directory to override CMake's standard search functions
         mkdir -p cmake
         
-        # 2. Force a bulletproof mock FindBoost module that satisfies all component variations
+        # 1. Cleaner Mock FindBoost (using if(!TARGET...) blocks so it doesn't crash on duplicates)
         cat << 'EOF' > cmake/FindBoost.cmake
         set(Boost_FOUND TRUE)
         set(BOOST_FOUND TRUE)
@@ -40,31 +39,45 @@ jobs:
         set(Boost_SYSTEM_FOUND TRUE)
         set(Boost_FILESYSTEM_FOUND TRUE)
         set(Boost_PROGRAM_OPTIONS_FOUND TRUE)
-        add_library(Boost::boost INTERFACE IMPORTED)
-        add_library(Boost::system INTERFACE IMPORTED)
-        add_library(Boost::filesystem INTERFACE IMPORTED)
-        add_library(Boost::program_options INTERFACE IMPORTED)
+        if(NOT TARGET Boost::boost)
+          add_library(Boost::boost INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET Boost::system)
+          add_library(Boost::system INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET Boost::filesystem)
+          add_library(Boost::filesystem INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET Boost::program_options)
+          add_library(Boost::program_options INTERFACE IMPORTED)
+        endif()
         EOF
 
-        # 3. Force a matching mock FindBullet module to catch physics engine checks cleanly
+        # 2. Mock FindBullet physics module
         cat << 'EOF' > cmake/FindBullet.cmake
         set(BULLET_FOUND TRUE)
         set(Bullet_FOUND TRUE)
         set(BULLET_INCLUDE_DIRS "/usr/include/bullet")
         set(BULLET_LIBRARIES "dummy")
-        add_library(Bullet::LinearMath INTERFACE IMPORTED)
-        add_library(Bullet::BulletCollision INTERFACE IMPORTED)
-        add_library(Bullet::BulletDynamics INTERFACE IMPORTED)
+        if(NOT TARGET Bullet::LinearMath)
+          add_library(Bullet::LinearMath INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET Bullet::BulletCollision)
+          add_library(Bullet::BulletCollision INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET Bullet::BulletDynamics)
+          add_library(Bullet::BulletDynamics INTERFACE IMPORTED)
+        endif()
         EOF
 
         mkdir build
         cd build
         
-        # 4. Map the underlying compilation commands to Emscripten's integrated Wasm platforms
+        # 3. Map compilation commands to Emscripten's integrated WebAssembly frameworks
         export EMCC_CFLAGS="-s USE_BOOST=1"
         export EMXX_CFLAGS="-s USE_BOOST=1"
         
-        # 5. Initialize CMake while injecting our custom module directory as the absolute primary path
+        # 4. Execute CMake with root path search permissions enabled for GLM headers
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
@@ -75,7 +88,7 @@ jobs:
           -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
           -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH
         
-        # 6. Execute the build chain across all active container system threads
+        # 5. Compile the project files using all active cloud system cores
         emmake make -j$(nproc)
 
     - name: Deploy to GitHub Pages
