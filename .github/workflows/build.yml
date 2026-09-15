@@ -18,8 +18,8 @@ jobs:
     - name: Install System Utilities
       run: |
         sudo apt-get update
-        # Installs base libraries so the underlying engine can resolve standard system references
-        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
+        # Added libbullet-dev to satisfy the physics engine requirements
+        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev libbullet-dev
 
     - name: Setup Emscripten Official
       uses: emscripten-core/setup-emsdk@v14
@@ -40,13 +40,15 @@ jobs:
         export EMCC_CFLAGS="-s USE_BOOST=1"
         export EMXX_CFLAGS="-s USE_BOOST=1"
         
-        # 3. Execute CMake and force it to look at our dummy directory first
+        # 3. Execute CMake with cross-compilation target paths enabled for physics headers
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
           -DOPENRW_WEB_BUILD=ON \
           -DCMAKE_MODULE_PATH=$(pwd) \
-          -DCMAKE_PREFIX_PATH=$(pwd)
+          -DCMAKE_PREFIX_PATH=$(pwd) \
+          -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
+          -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH
         
         # 4. Compile the project files using all active cloud system cores
         emmake make -j$(nproc)
