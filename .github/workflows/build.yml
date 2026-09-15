@@ -15,35 +15,36 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Install System Dependencies
+    - name: Install System Utilities
       run: |
         sudo apt-get update
-        # We removed Boost here so it stops confusing CMake
-        sudo apt-get install -y libsdl2-dev libopenal-dev
+        sudo apt-get install -y python3-pip libsdl2-dev libopenal-dev
+        # Install Conan, the package manager OpenRW uses for its dependencies
+        pip3 install conan==1.60.0 --break-system-packages
 
     - name: Setup Emscripten Official
       uses: emscripten-core/setup-emsdk@v14
       with:
         version: latest
 
-    - name: Build with CMake and Emscripten
+    - name: Build Dependencies and Game
       run: |
         mkdir build
         cd build
         
-        # 1. Force Emscripten to download and use its own WebAssembly-compatible Boost
-        export EMCC_CFLAGS="-s USE_BOOST=1"
-        export EMXX_CFLAGS="-s USE_BOOST=1"
+        # 1. Create a Conan profile for WebAssembly
+        conan profile new default --detect
+        conan profile update settings.os=Emscripten default
+        conan profile update settings.arch=wasm default
+        conan profile update settings.compiler=clang default
+        conan profile update settings.compiler.version=15 default
+        conan profile update settings.compiler.libcxx=libc++ default
         
-        # 2. We mock the Boost variables so CMake thinks it found it and skips the error loop
-        emcmake cmake .. \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DOPENRW_BUILD_TESTS=OFF \
-          -DOPENRW_WEB_BUILD=ON \
-          -DBoost_FOUND=TRUE \
-          -DBoost_INCLUDE_DIRS="" \
-          -DBoost_LIBRARIES=""
+        # 2. Tell Conan to fetch and cross-compile Boost for WebAssembly
+        conan install .. --build=missing -s build_type=Release
         
+        # 3. Configure and execute the actual compilation
+        emcmake cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENRW_BUILD_TESTS=OFF -DOPENRW_WEB_BUILD=ON
         emmake make -j$(nproc)
 
     - name: Deploy to GitHub Pages
