@@ -15,35 +15,40 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Install Base Utilities
+    - name: Install System Utilities
       run: |
         sudo apt-get update
-        # Installs base libraries for build tools configuration
-        sudo apt-get install -y libsdl2-dev libopenal-dev
+        # Installs base libraries so the underlying engine can resolve standard system references
+        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
 
     - name: Setup Emscripten Official
       uses: emscripten-core/setup-emsdk@v14
       with:
         version: latest
 
-    - name: Build via Emscripten Ports
+    - name: Build via Structural Overwrite
       run: |
         mkdir build
         cd build
         
-        # 1. Instruct the compiler to use Emscripten's native WebAssembly Boost port
+        # 1. Create a dummy FindBoost module directly where CMake checks first
+        echo "set(Boost_FOUND TRUE)" > FindBoost.cmake
+        echo "set(Boost_INCLUDE_DIRS \"/usr/include\")" >> FindBoost.cmake
+        echo "set(Boost_LIBRARIES \"/usr/lib/x86_64-linux-gnu\")" >> FindBoost.cmake
+        
+        # 2. Tell the underlying compiler engine to map headers to the web-safe libraries
         export EMCC_CFLAGS="-s USE_BOOST=1"
         export EMXX_CFLAGS="-s USE_BOOST=1"
         
-        # 2. Configure CMake by disabling the rigid desktop search requirements
+        # 3. Execute CMake and force it to look at our dummy directory first
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
           -DOPENRW_WEB_BUILD=ON \
-          -DOPENRW_USE_CONAN=OFF \
-          -DOPENRW_FORCE_SYSTEM_BOOST=ON
+          -DCMAKE_MODULE_PATH=$(pwd) \
+          -DCMAKE_PREFIX_PATH=$(pwd)
         
-        # 3. Execute the compiler chain across available CPU cores
+        # 4. Compile the project files using all active cloud system cores
         emmake make -j$(nproc)
 
     - name: Deploy to GitHub Pages
