@@ -1,0 +1,46 @@
+name: Build OpenRW for Web
+on:
+  push:
+    branches: [ master, main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code with submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive' # Fetches librw and other engine components
+
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        # Installs packages needed to configure the build tree
+        sudo apt-get install -y libsdl2-dev libopenal-dev
+
+    - name: Setup Emscripten
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: latest
+
+    - name: Build with CMake and Emscripten
+      run: |
+        mkdir build
+        cd build
+        # 1. Configure CMake specifically for the Emscripten toolchain
+        emcmake cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DOPENRW_BUILD_TESTS=OFF \
+          -DOPENRW_WEB_BUILD=ON
+        
+        # 2. Compile the project using all available CPU cores
+        emmake make -j$(nproc)
+
+    - name: Deploy to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: build # Where the final .html and .wasm files are generated
+        branch: gh-pages
