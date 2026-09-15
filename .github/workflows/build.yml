@@ -22,22 +22,21 @@ jobs:
         sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
 
 
-    - name: Setup Emscripten
-      uses: mymindstorm/setup-emsdk@v14
-      with:
-        version: latest
-
     - name: Build with CMake and Emscripten
       run: |
         mkdir build
         cd build
-        # 1. Configure CMake specifically for the Emscripten toolchain
+        # We tell CMake to look directly at the Ubuntu system path for the Boost headers
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
-          -DOPENRW_WEB_BUILD=ON
+          -DOPENRW_WEB_BUILD=ON \
+          -DBoost_NO_BOOST_CMAKE=ON \
+          -DBOOST_ROOT=/usr \
+          -DBOOST_INCLUDEDIR=/usr/include \
+          -DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu
         
-        # 2. Compile the project using all available CPU cores
+        # Compile the project using all available CPU cores
         emmake make -j$(nproc)
 
     - name: Deploy to GitHub Pages
