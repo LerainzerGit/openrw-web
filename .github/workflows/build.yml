@@ -15,36 +15,35 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Install System Utilities
+    - name: Install Base Utilities
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-pip libsdl2-dev libopenal-dev
-        # Install Conan, the package manager OpenRW uses for its dependencies
-        pip3 install conan==1.60.0 --break-system-packages
+        # Installs base libraries for build tools configuration
+        sudo apt-get install -y libsdl2-dev libopenal-dev
 
     - name: Setup Emscripten Official
       uses: emscripten-core/setup-emsdk@v14
       with:
         version: latest
 
-    - name: Build Dependencies and Game
+    - name: Build via Emscripten Ports
       run: |
         mkdir build
         cd build
         
-        # 1. Create a Conan profile for WebAssembly
-        conan profile new default --detect
-        conan profile update settings.os=Emscripten default
-        conan profile update settings.arch=wasm default
-        conan profile update settings.compiler=clang default
-        conan profile update settings.compiler.version=15 default
-        conan profile update settings.compiler.libcxx=libc++ default
+        # 1. Instruct the compiler to use Emscripten's native WebAssembly Boost port
+        export EMCC_CFLAGS="-s USE_BOOST=1"
+        export EMXX_CFLAGS="-s USE_BOOST=1"
         
-        # 2. Tell Conan to fetch and cross-compile Boost for WebAssembly
-        conan install .. --build=missing -s build_type=Release
+        # 2. Configure CMake by disabling the rigid desktop search requirements
+        emcmake cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DOPENRW_BUILD_TESTS=OFF \
+          -DOPENRW_WEB_BUILD=ON \
+          -DOPENRW_USE_CONAN=OFF \
+          -DOPENRW_FORCE_SYSTEM_BOOST=ON
         
-        # 3. Configure and execute the actual compilation
-        emcmake cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENRW_BUILD_TESTS=OFF -DOPENRW_WEB_BUILD=ON
+        # 3. Execute the compiler chain across available CPU cores
         emmake make -j$(nproc)
 
     - name: Deploy to GitHub Pages
