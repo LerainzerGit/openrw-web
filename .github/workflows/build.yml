@@ -18,8 +18,9 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        # Installs packages needed to configure the build tree
-        sudo apt-get install -y libsdl2-dev libopenal-dev
+        # Added libboost-all-dev to provide the missing BoostConfig.cmake files
+        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
+
 
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
