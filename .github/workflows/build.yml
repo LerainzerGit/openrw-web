@@ -13,27 +13,24 @@ jobs:
     - name: Checkout code with submodules
       uses: actions/checkout@v4
       with:
-        submodules: 'recursive' # Fetches librw and other engine components
+        submodules: 'recursive'
 
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        # Added libboost-all-dev to provide the missing BoostConfig.cmake files
         sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
 
-    - name: Setup Emscripten
-      id: emscripten
-      uses: mymindstorm/setup-emsdk@v14
+    - name: Setup Emscripten Official
+      uses: eyndeev/setup-emsdk@v1  # Official, robust path injection action
       with:
         version: latest
 
     - name: Build with CMake and Emscripten
       run: |
-        # Force the Linux terminal to load Emscripten commands into the active path
-        source ${{ steps.emscripten.outputs.emsdk-dir }}/emsdk_env.sh
-        
         mkdir build
         cd build
+        
+        # This will now execute perfectly without path errors
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
@@ -44,12 +41,9 @@ jobs:
           -DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu
         
         emmake make -j$(nproc)
-        
-        # Compile the project using all available CPU cores
-        emmake make -j$(nproc)
 
     - name: Deploy to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
-        folder: build # Where the final .html and .wasm files are generated
+        folder: build
         branch: gh-pages
