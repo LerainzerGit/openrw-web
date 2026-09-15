@@ -21,12 +21,19 @@ jobs:
         # Added libboost-all-dev to provide the missing BoostConfig.cmake files
         sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
 
+    - name: Setup Emscripten
+      id: emscripten
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: latest
 
     - name: Build with CMake and Emscripten
       run: |
+        # Force the Linux terminal to load Emscripten commands into the active path
+        source ${{ steps.emscripten.outputs.emsdk-dir }}/emsdk_env.sh
+        
         mkdir build
         cd build
-        # We tell CMake to look directly at the Ubuntu system path for the Boost headers
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
@@ -35,6 +42,8 @@ jobs:
           -DBOOST_ROOT=/usr \
           -DBOOST_INCLUDEDIR=/usr/include \
           -DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu
+        
+        emmake make -j$(nproc)
         
         # Compile the project using all available CPU cores
         emmake make -j$(nproc)
