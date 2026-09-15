@@ -21,7 +21,7 @@ jobs:
         sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev
 
     - name: Setup Emscripten Official
-      uses: eyndeev/setup-emsdk@v1  # Official, robust path injection action
+      uses: emscripten-core/setup-emsdk@v14  # The correct official repository path
       with:
         version: latest
 
@@ -30,7 +30,7 @@ jobs:
         mkdir build
         cd build
         
-        # This will now execute perfectly without path errors
+        # This will execute natively with system-wide Emscripten paths active
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
