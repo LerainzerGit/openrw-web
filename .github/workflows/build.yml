@@ -18,8 +18,9 @@ jobs:
     - name: Install System Utilities
       run: |
         sudo apt-get update
-        # Added libglm-dev to satisfy the OpenGL Mathematics dependency
-        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev libbullet-dev libglm-dev
+        # Added FFmpeg media development packages to satisfy audio/video streaming dependencies
+        sudo apt-get install -y libsdl2-dev libopenal-dev libboost-all-dev libbullet-dev libglm-dev \
+          libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
 
     - name: Setup Emscripten Official
       uses: emscripten-core/setup-emsdk@v14
@@ -30,7 +31,7 @@ jobs:
       run: |
         mkdir -p cmake
         
-        # 1. Cleaner Mock FindBoost (using if(!TARGET...) blocks so it doesn't crash on duplicates)
+        # 1. Mock FindBoost (remains stable via target isolation blocks)
         cat << 'EOF' > cmake/FindBoost.cmake
         set(Boost_FOUND TRUE)
         set(BOOST_FOUND TRUE)
@@ -73,11 +74,11 @@ jobs:
         mkdir build
         cd build
         
-        # 3. Map compilation commands to Emscripten's integrated WebAssembly frameworks
+        # 3. Bind compiler configurations to Emscripten's integrated environments
         export EMCC_CFLAGS="-s USE_BOOST=1"
         export EMXX_CFLAGS="-s USE_BOOST=1"
         
-        # 4. Execute CMake with root path search permissions enabled for GLM headers
+        # 4. Initialize CMake with host cross-compilation tracking rules active
         emcmake cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DOPENRW_BUILD_TESTS=OFF \
